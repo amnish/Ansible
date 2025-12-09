@@ -1,0 +1,14 @@
+
+- name: Get EC2 instance details
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Fetch EC2 info
+      amazon.aws.ec2_instance_info:
+        region: ap-south-1
+      register: ec2_info
+
+    - name: Show instance IDs and states
+      debug:
+        msg: "{{ item.instance_id }} - {{ item.state.name }}"
+      loop: "{{ ec2_info.instances }}"
