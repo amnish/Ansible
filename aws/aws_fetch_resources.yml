@@ -1,0 +1,75 @@
+
+---
+- name: Collect AWS resource information
+  hosts: localhost
+  gather_facts: no
+  vars:
+    aws_region: "us-east-1"
+
+  tasks:
+    # --- EC2 Instances ---
+    - name: Fetch EC2 instance info
+      amazon.aws.ec2_instance_info:
+        region: "{{ aws_region }}"
+      register: ec2_info
+
+    - name: Print EC2 summary
+      vars:
+        instances: "{{ ec2_info.instances | default([]) }}"
+      debug:
+        msg: >-
+          {{ instances | map(attribute='instance_id') | list | length }} instances found:
+          {{ instances | map(attribute='instance_id') | list }}
+
+    - name: Detailed EC2 output (ID, Name tag, State, Private IP)
+      debug:
+        msg: >-
+          {{ item.instance_id }} | {{ (item.tags.Name | default('N/A')) }} |
+          {{ item.state.name }} | {{ item.private_ip_address | default('N/A') }}
+      loop: "{{ ec2_info.instances | default([]) }}"
+
+    # --- S3 Buckets ---
+    - name: List S3 buckets
+      amazon.aws.s3_bucket_info:
+        region: "{{ aws_region }}"
+      register: s3_info
+
+    - name: Print S3 buckets
+      debug:
+        msg: "{{ s3_info.buckets | map(attribute='Name') | list }}"
+
+    # --- IAM Users ---
+    - name: List IAM users
+      amazon.aws.iam_user_info:
+      register: iam_info
+
+    - name: Print IAM users
+      debug:
+        msg: >-
+          {{ iam_info.users | map(attribute='user_name') | list }}
+
+    # --- Optional: RDS Instances ---
+    - name: Fetch RDS instances
+      community.aws.rds_instance_info:
+        region: "{{ aws_region }}"
+      register: rds_info
+      ignore_errors: yes
+
+    - name: Print RDS DB identifiers and status
+      when: rds_info.db_instances is defined
+      debug:
+        msg: >-
+          {{ rds_info.db_instances | map(attribute='DBInstanceIdentifier') | list }} |
+          {{ rds_info.db_instances | map(attribute='DBInstanceStatus') | list }}
+
+    # --- Optional: EKS Clusters ---
+    - name: List EKS clusters
+      amazon.aws.eks_cluster_info:
+        region: "{{ aws_region }}"
+      register: eks_info
+      ignore_errors: yes
+
+    - name: Print EKS clusters
+      when: eks_info.clusters is defined
+      debug:
+        msg: "{{ eks_info.clusters }}"
